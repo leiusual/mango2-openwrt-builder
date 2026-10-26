@@ -1,0 +1,193 @@
+name: Build MG1300 OpenWrt
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags:
+      - 'OpenWrt-PR*-mg1300-r*'
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mg1300-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Test version and release checks
+        run: |
+          python3 -m unittest discover -s tests -v
+          python3 scripts/release.py version
+          git diff --check
+
+  build:
+    needs: validate
+    if: github.event_name == 'workflow_dispatch' || github.ref_type == 'tag'
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout builder
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Resolve locked MG1300 release
+        id: version
+        run: python3 scripts/release.py version --github-output "$GITHUB_OUTPUT"
+
+      - name: Prepare build host
+        run: |
+          # Only removes unused SDKs from this disposable GitHub-hosted runner.
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential clang flex bison g++ gawk gcc-multilib g++-multilib \
+            gettext git libncurses-dev libssl-dev python3 python3-setuptools \
+            python3-pyelftools rsync swig unzip zlib1g-dev file wget curl \
+            patch perl time xsltproc zstd
+          df -h .
+          available_kb=$(df -Pk . | awk 'NR == 2 {print $4}')
+          if (( available_kb < 20 * 1024 * 1024 )); then
+            echo '::error::Less than 20 GiB available; use a runner with more disk space.'
+            exit 1
+          fi
+          mkdir -p build-info
+
+      - name: Record exact builder inputs
+        run: python3 scripts/release.py record
+
+      - name: Fetch reviewed PR source
+        env:
+          OPENWRT_SHA: ${{ steps.version.outputs.source_sha }}
+        run: |
+          # Refuse to reuse an existing source/build tree.
+          mkdir openwrt
+          git -C openwrt init
+          git -C openwrt remote add origin https://github.com/openwrt/openwrt.git
+          git -C openwrt fetch --depth=1 origin "$OPENWRT_SHA"
+          git -C openwrt checkout --detach FETCH_HEAD
+          test "$(git -C openwrt rev-parse HEAD)" = "$OPENWRT_SHA"
+          test -f openwrt/target/linux/ramips/dts/mt7621_glinet_gl-mg1300.dts
+          git -C openwrt show -s --format=fuller HEAD > build-info/source.txt
+
+      - name: Apply minimal firmware patches
+        working-directory: openwrt
+        run: |
+          git apply --check ../patches/*.patch
+          git apply ../patches/*.patch
+          sh -n package/base-files/files/bin/config_generate
+          sh -n package/network/utils/uqmi/files/lib/netifd/proto/qmi.sh
+          git diff --check
+          git diff > ../build-info/local-changes.patch
+
+      - name: Install pinned feeds and configure MG1300
+        working-directory: openwrt
+        run: |
+          cp ../feeds.conf feeds.conf
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+          cp ../configs/mg1300.config .config
+          make defconfig
+          # Preserve diagnostics even if a configuration assertion fails.
+          cp .config ../build-info/config.full
+          cp feeds.conf ../build-info/feeds.conf
+          ./scripts/diffconfig.sh > ../build-info/config.diff
+          for feed in packages luci; do
+            printf '%s %s\n' "$feed" "$(git -C "feeds/$feed" rev-parse HEAD)"
+          done > ../build-info/feed-revisions.txt
+
+          # The config fragment is the single list of requested options.
+          # Let Kconfig resolve dependencies and retain upstream defaults.
+          while IFS= read -r setting || [[ -n "$setting" ]]; do
+            case "$setting" in
+              CONFIG_*=y)
+                grep -qxF "$setting" .config || {
+                  echo "::error::Required configuration missing: $setting"
+                  exit 1
+                }
+                ;;
+            esac
+          done < ../configs/mg1300.config
+
+      - name: Download sources
+        working-directory: openwrt
+        run: make download -j8 V=s 2>&1 | tee ../build-info/download.log
+
+      - name: Build firmware
+        working-directory: openwrt
+        run: |
+          # Limit peak memory use on standard runners; retry serially for diagnostics.
+          if ! make -j2 2>&1 | tee ../build-info/build.log; then
+            make -j1 V=s 2>&1 | tee ../build-info/build-retry.log
+          fi
+
+      - name: Validate firmware and package release assets
+        run: |
+          python3 scripts/release.py package
+          python3 scripts/release.py verify
+
+      - name: Upload release assets
+        uses: actions/upload-artifact@v7
+        with:
+          name: mg1300-release-${{ github.run_number }}
+          path: release-assets/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+          overwrite: true
+
+      - name: Upload configuration and logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mg1300-build-info-${{ github.run_number }}
+          path: |
+            build-info/
+            openwrt/logs/
+          if-no-files-found: warn
+          retention-days: 14
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/OpenWrt-PR')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v8
+        with:
+          name: mg1300-release-${{ github.run_number }}
+          path: release-assets
+      - name: Verify release provenance and checksums
+        run: python3 scripts/release.py verify
+      - name: Publish complete MG1300 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          PRERELEASE: ${{ needs.build.outputs.prerelease }}
+        run: |
+          gh release create "$RELEASE_TAG" \
+            "release-assets/${RELEASE_TAG}-sysupgrade.bin" \
+            "release-assets/${RELEASE_TAG}-build-output.tar.gz" \
+            "release-assets/${RELEASE_TAG}-build-info.tar.gz" \
+            release-assets/SHA256SUMS release-assets/build-metadata.json \
+            --verify-tag --title "$RELEASE_TAG" \
+            --notes-file release-assets/release-notes.md --draft
+          gh release edit "$RELEASE_TAG" --draft=false --prerelease="$PRERELEASE"

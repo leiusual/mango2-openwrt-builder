@@ -1,0 +1,12 @@
+diff --git a/package/network/utils/uqmi/files/lib/netifd/proto/qmi.sh b/package/network/utils/uqmi/files/lib/netifd/proto/qmi.sh
+--- a/package/network/utils/uqmi/files/lib/netifd/proto/qmi.sh
++++ b/package/network/utils/uqmi/files/lib/netifd/proto/qmi.sh
+@@ -461,7 +461,7 @@ proto_qmi_setup() {
+ 			proto_init_update "$ifname" 1
+ 			proto_set_keep 1
+ 			proto_add_ipv4_address "$ip_4" "$subnet_4"
+-			proto_add_ipv4_route "$gateway_4" "128"
++			proto_add_ipv4_route "$gateway_4" "32"
+ 			[ "$defaultroute" = 0 ] || proto_add_ipv4_route "0.0.0.0" 0 "$gateway_4"
+ 			proto_add_dns_server "$dns1_4"
+ 			proto_add_dns_server "$dns2_4"

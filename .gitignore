@@ -1,0 +1,5 @@
+/openwrt/
+/build-info/
+/release-assets/
+__pycache__/
+*.pyc
