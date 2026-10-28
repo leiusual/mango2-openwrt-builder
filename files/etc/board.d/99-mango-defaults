@@ -1,0 +1,15 @@
+#!/bin/sh
+# Defaults for newly generated MG1300 configuration; preserve existing UCI.
+
+. /lib/functions/uci-defaults.sh
+. /lib/functions/system.sh
+
+[ "$(board_name)" = 'glinet,gl-mg1300' ] || exit 0
+
+board_config_update
+ucidef_set_hostname 'Mango'
+ucidef_set_country 'CN'
+ucidef_set_wireless 'all' 'Mango' 'none'
+board_config_flush
+
+exit 0

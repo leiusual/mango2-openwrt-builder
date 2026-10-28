@@ -1,0 +1,103 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-only
+# DJI IG832 2ca3:4006: option on interfaces 0-3, QMI on interface 4.
+# Reference IDs checked on stock OpenWrt, Linux 6.18.44; see README.
+
+[ "$ACTION" = add ] || exit 0
+case "$PRODUCT" in
+	2ca3/4006/*) ;;
+	*) exit 0 ;;
+esac
+case "$DEVPATH" in
+	/devices/*) ;;
+	*) exit 0 ;;
+esac
+case "$DEVTYPE" in
+	usb_device) usb_path="/sys$DEVPATH" ;;
+	usb_interface)
+		case "$MODALIAS" in
+			*icFFiscFFipFFin04) usb_path="/sys${DEVPATH%/*}" ;;
+			*) exit 0 ;;
+		esac
+		;;
+	*) exit 0 ;;
+esac
+
+usb_name="${usb_path##*/}"
+qmi_iface="$usb_path/$usb_name:1.4"
+# An early device add is followed by interface add; coldplug replays device add.
+[ -d "$qmi_iface" ] || exit 0
+case "$(cat "$qmi_iface/modalias")" in
+	*icFFiscFFipFFin04) ;;
+	*) logger -t dji-qmi "Unexpected USB layout at $qmi_iface"; exit 1 ;;
+esac
+
+if ! modprobe option || ! modprobe qmi_wwan; then
+	logger -t dji-qmi "Cannot load option or qmi_wwan"
+	exit 1
+fi
+
+serial_ids=/sys/bus/usb-serial/drivers/option1/new_id
+qmi_driver=/sys/bus/usb/drivers/qmi_wwan
+[ -r "$serial_ids" ] && [ -w "$serial_ids" ] &&
+	[ -r "$qmi_driver/new_id" ] && [ -w "$qmi_driver/new_id" ] &&
+	[ -w "$qmi_driver/remove_id" ] || {
+	logger -t dji-qmi "USB dynamic ID attributes are not accessible"
+	exit 1
+}
+
+# Never rely on an existing broad QMI rule or silently take over another setup.
+if grep -q '^2ca3 4006\( \|$\)' "$qmi_driver/new_id"; then
+	logger -t dji-qmi "Unexpected persistent DJI QMI ID; clear it before retrying"
+	exit 1
+fi
+
+# This reference contributes only RSVD(4), leaving interfaces 0-3 available.
+# The option ID is safe to retain across unplugging. See README for firmware scope.
+if ! grep -q '^2ca3 4006\( \|$\)' "$serial_ids"; then
+	if ! printf '%s\n' '2ca3 4006 ff 05c6 908b' > "$serial_ids"; then
+		logger -t dji-qmi "Failed to register the DJI serial ID"
+		exit 1
+	fi
+fi
+
+for n in 0 1 2 3; do
+	serial_iface="$usb_path/$usb_name:1.$n"
+	[ -L "$serial_iface/driver" ] &&
+		[ "$(readlink -f "$serial_iface/driver")" = /sys/bus/usb/drivers/option ] || {
+		logger -t dji-qmi "Interface $n is not bound to option; skipping QMI"
+		exit 1
+	}
+done
+
+if [ -L "$qmi_iface/driver" ]; then
+	[ "$(readlink -f "$qmi_iface/driver")" = "$qmi_driver" ] && exit 0
+	logger -t dji-qmi "Interface 4 is already bound to another driver"
+	exit 1
+fi
+
+dji_qmi_cleanup() {
+	if ! printf '%s\n' '2ca3 4006' > "$qmi_driver/remove_id"; then
+		logger -t dji-qmi "Failed to remove the temporary DJI QMI ID"
+		return 1
+	fi
+}
+trap dji_qmi_cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+# All serial interfaces are occupied. Only interface 4 remains available.
+if ! printf '%s\n' '2ca3 4006 ff 2c7c 0125' > "$qmi_driver/new_id"; then
+	logger -t dji-qmi "Failed to register the temporary DJI QMI ID"
+	exit 1
+fi
+dji_qmi_cleanup || exit 1
+trap - EXIT HUP INT TERM
+
+[ -L "$qmi_iface/driver" ] &&
+	[ "$(readlink -f "$qmi_iface/driver")" = "$qmi_driver" ] || {
+	logger -t dji-qmi "QMI did not bind interface 4"
+	exit 1
+}
+logger -t dji-qmi "Bound DJI serial interfaces and QMI; temporary QMI ID removed"

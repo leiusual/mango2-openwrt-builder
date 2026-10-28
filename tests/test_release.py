@@ -115,6 +115,24 @@ class PackagingTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'inputs changed'):
             self.package()
 
+    def test_changed_firmware_overlay_is_rejected(self):
+        overlay = self.repo / 'files/etc/hotplug.d/usb/99-dji-qmi'
+        overlay.parent.mkdir(parents=True)
+        overlay.write_text('#!/bin/sh\nexit 0\n')
+        self.record()
+        overlay.write_text('#!/bin/sh\nexit 1\n')
+        with self.assertRaisesRegex(ValueError, 'inputs changed'):
+            self.package()
+
+    def test_removed_firmware_overlay_is_rejected(self):
+        overlay = self.repo / 'files/etc/hotplug.d/usb/99-dji-qmi'
+        overlay.parent.mkdir(parents=True)
+        overlay.write_text('#!/bin/sh\nexit 0\n')
+        self.record()
+        overlay.unlink()
+        with self.assertRaisesRegex(ValueError, 'inputs changed'):
+            self.package()
+
     def test_different_builder_commit_is_rejected(self):
         self.package()
         metadata = json.loads((self.output / 'build-metadata.json').read_text())

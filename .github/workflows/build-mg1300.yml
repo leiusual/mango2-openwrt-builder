@@ -26,6 +26,8 @@ jobs:
         run: |
           python3 -m unittest discover -s tests -v
           python3 scripts/release.py version
+          sh -n files/etc/hotplug.d/usb/99-dji-qmi
+          sh -n files/etc/board.d/99-mango-defaults
           git diff --check
 
   build:
@@ -93,6 +95,15 @@ jobs:
           sh -n package/network/utils/uqmi/files/lib/netifd/proto/qmi.sh
           git diff --check
           git diff > ../build-info/local-changes.patch
+
+      - name: Install firmware overlay
+        run: |
+          sh -n files/etc/hotplug.d/usb/99-dji-qmi
+          sh -n files/etc/board.d/99-mango-defaults
+          test -x files/etc/hotplug.d/usb/99-dji-qmi
+          test -x files/etc/board.d/99-mango-defaults
+          cp -a files openwrt/files
+          cp -a files build-info/files
 
       - name: Install pinned feeds and configure MG1300
         working-directory: openwrt
