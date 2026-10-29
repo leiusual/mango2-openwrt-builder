@@ -16,7 +16,7 @@ class VersionTests(unittest.TestCase):
 
     def test_device_source_and_revision_identify_release(self):
         tag = release.version(self.config)
-        self.assertIn('-' + self.config['source_commit'][:8] + '-mg1300-r', tag)
+        self.assertIn('-' + self.config['source_commit'][:8] + '-mango2-r', tag)
         self.assertEqual(release.version(dict(self.config, revision=2)).rsplit('-r', 1)[1], '2')
 
     def test_wrong_device_or_unpinned_source_rejected(self):
@@ -26,7 +26,7 @@ class VersionTests(unittest.TestCase):
                 release.version(dict(self.config, **change))
 
     def test_wrong_release_tag_rejected(self):
-        for tag in ['build-20261025-01', 'OpenWrt-PR24886-00000000-mg1300-r1']:
+        for tag in ['build-20261025-01', 'OpenWrt-PR24886-00000000-mango2-r1']:
             with self.subTest(tag=tag), self.assertRaises(ValueError):
                 release.check_ref(self.config, 'tag', tag)
 
@@ -39,7 +39,7 @@ class PackagingTests(unittest.TestCase):
         self.repo = self.root / 'repo'
         (self.repo / 'configs').mkdir(parents=True)
         (self.repo / 'patches').mkdir()
-        for name in ['configs/release.json', 'configs/mg1300.config', 'feeds.conf']:
+        for name in ['configs/release.json', 'configs/mango2.config', 'feeds.conf']:
             (self.repo / name).write_bytes((ROOT / name).read_bytes())
         self.config = json.loads((self.repo / 'configs/release.json').read_text())
         self.firmware = self.root / 'bin'
@@ -111,7 +111,7 @@ class PackagingTests(unittest.TestCase):
             target.write_text(old)
 
     def test_changed_builder_inputs_are_rejected(self):
-        (self.repo / 'configs/mg1300.config').write_text('different recipe')
+        (self.repo / 'configs/mango2.config').write_text('different recipe')
         with self.assertRaisesRegex(ValueError, 'inputs changed'):
             self.package()
 

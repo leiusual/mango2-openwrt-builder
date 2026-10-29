@@ -1,4 +1,4 @@
-# GL-MG1300 OpenWrt 构建
+# Mango2 OpenWrt Builder
 
 通过 GitHub Actions 构建 [OpenWrt PR #24886](https://github.com/openwrt/openwrt/pull/24886) 的固定源码，目标设备为 **GL.iNet GL-MG1300（Mango 2）**。
 
@@ -27,7 +27,7 @@ IPv6、DHCP、DNS和防火墙使用上游默认值。hostname 默认为 `Mango`�
 
 | 补丁 | 修改 |
 | --- | --- |
-| `patches/0002-qmi-ipv4-gateway-prefix.patch` | 修正原生 QMI 在 `dhcp=0` 分支中的 IPv4 网关主机路由：`/128` → `/32` |
+| `patches/0001-qmi-ipv4-gateway-prefix.patch` | 修正原生 QMI 在 `dhcp=0` 分支中的 IPv4 网关主机路由：`/128` → `/32` |
 
 补丁应用前执行 `git apply --check`，应用后检查脚本语法；不适用时停止构建。完整差异随构建信息保存。
 
@@ -36,22 +36,22 @@ IPv6、DHCP、DNS和防火墙使用上游默认值。hostname 默认为 `Mango`�
 | 文件 | 用途 |
 | --- | --- |
 | `configs/release.json` | 固定源码 SHA、PR 编号、自有修订号与 Pre-release 标记 |
-| `configs/mg1300.config` | 设备和额外软件包选择 |
+| `configs/mango2.config` | 设备和额外软件包选择 |
 | `feeds.conf` | 固定官方 packages、LuCI 提交 |
 | `patches/` | 构建时应用的源码补丁 |
 | `files/` | 内置到固件根目录的文件，包括 DJI USB hotplug 和 Mango 默认配置 |
 
 当前源码：`e507084c386fd415a31563a09def0dfa85191b2f`。
 
-当前版本：`OpenWrt-PR24886-e507084c-mg1300-r5`。构建不会自动追踪 PR 更新。
+当前版本：`OpenWrt-PR24886-e507084c-mango2-r6`。构建不会自动追踪 PR 更新。
 
 ## 构建与发布
 
 | 触发方式 | 行为 |
 | --- | --- |
 | main push / Pull Request | 检查版本、发布逻辑和文件格式 |
-| Actions → Build MG1300 OpenWrt → Run workflow，选择分支 | 完整构建并上传 Artifacts |
-| 推送匹配配置的 `OpenWrt-PR*-mg1300-r*` tag，或手动选择该 tag | 完整构建，成功后自动发布 Release |
+| Actions → Build Mango2 → Run workflow，选择分支 | 完整构建并上传 Artifacts |
+| 推送匹配配置的 `OpenWrt-PR*-mango2-r*` tag，或手动选择该 tag | 完整构建，成功后自动发布 Release |
 
 发布版本时，先提交修改并确保检查通过，再创建配置对应的 tag：
 
@@ -65,14 +65,14 @@ git push origin "$release_tag"
 
 发布前会校验 MG1300 镜像、源码/feeds、构建输入、tag 与校验和。附件先上传到草稿，完整后再公开；当前设置为 **Pre-release，待实机验收**。
 
-Release 和 `mg1300-release-*` Artifact 包含：
+Release 和 `mango2-release-*` Artifact 包含：
 
 - `*-sysupgrade.bin`：MG1300 固件。
 - `*-build-output.tar.gz`：完整 `bin/`，包括原始镜像、匹配内核的软件包和清单。
 - `*-build-info.tar.gz`：固定源码、feeds、展开配置、补丁差异和构建日志。
 - `build-metadata.json`、`SHA256SUMS`：构建来源和产物校验信息。
 
-`mg1300-build-info-*` Artifact 单独保存诊断信息，失败时也会尝试上传。Artifacts 保留 14 天。工作流使用 Ubuntu 24.04，完整构建最长 6 小时，失败后尝试单线程输出详细日志。
+`mango2-build-info-*` Artifact 单独保存诊断信息，失败时也会尝试上传。Artifacts 保留 14 天。工作流使用 Ubuntu 24.04，完整构建最长 6 小时，失败后尝试单线程输出详细日志。
 
 ## 使用
 

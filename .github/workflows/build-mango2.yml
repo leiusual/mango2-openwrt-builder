@@ -1,18 +1,18 @@
-name: Build MG1300 OpenWrt
+name: Build Mango2
 
 on:
   workflow_dispatch:
   push:
     branches: [main]
     tags:
-      - 'OpenWrt-PR*-mg1300-r*'
+      - 'OpenWrt-PR*-mango2-r*'
   pull_request:
 
 permissions:
   contents: read
 
 concurrency:
-  group: mg1300-${{ github.ref }}
+  group: mango2-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -47,7 +47,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Resolve locked MG1300 release
+      - name: Resolve locked Mango2 release
         id: version
         run: python3 scripts/release.py version --github-output "$GITHUB_OUTPUT"
 
@@ -105,13 +105,13 @@ jobs:
           cp -a files openwrt/files
           cp -a files build-info/files
 
-      - name: Install pinned feeds and configure MG1300
+      - name: Install pinned feeds and configure Mango2
         working-directory: openwrt
         run: |
           cp ../feeds.conf feeds.conf
           ./scripts/feeds update -a
           ./scripts/feeds install -a
-          cp ../configs/mg1300.config .config
+          cp ../configs/mango2.config .config
           make defconfig
           # Preserve diagnostics even if a configuration assertion fails.
           cp .config ../build-info/config.full
@@ -132,7 +132,7 @@ jobs:
                 }
                 ;;
             esac
-          done < ../configs/mg1300.config
+          done < ../configs/mango2.config
 
       - name: Download sources
         working-directory: openwrt
@@ -154,7 +154,7 @@ jobs:
       - name: Upload release assets
         uses: actions/upload-artifact@v7
         with:
-          name: mg1300-release-${{ github.run_number }}
+          name: mango2-release-${{ github.run_number }}
           path: release-assets/
           if-no-files-found: error
           retention-days: 14
@@ -165,7 +165,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: mg1300-build-info-${{ github.run_number }}
+          name: mango2-build-info-${{ github.run_number }}
           path: |
             build-info/
             openwrt/logs/
@@ -184,11 +184,11 @@ jobs:
           persist-credentials: false
       - uses: actions/download-artifact@v8
         with:
-          name: mg1300-release-${{ github.run_number }}
+          name: mango2-release-${{ github.run_number }}
           path: release-assets
       - name: Verify release provenance and checksums
         run: python3 scripts/release.py verify
-      - name: Publish complete MG1300 release
+      - name: Publish complete Mango2 release
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.build.outputs.tag }}

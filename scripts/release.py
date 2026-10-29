@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Version, package and verify GL-MG1300 release artifacts."""
+"""Version, package and verify Mango2 (GL-MG1300) release artifacts."""
 import argparse
 import hashlib
 import json
@@ -25,7 +25,7 @@ def version(config):
         raise ValueError('Revision must be a positive integer')
     if type(config['prerelease']) is not bool:
         raise ValueError('prerelease must be a boolean')
-    return f"OpenWrt-PR{config['source_pr']}-{config['source_commit'][:8]}-mg1300-r{config['revision']}"
+    return f"OpenWrt-PR{config['source_pr']}-{config['source_commit'][:8]}-mango2-r{config['revision']}"
 
 
 def check_ref(config, ref_type, ref_name):
@@ -58,7 +58,7 @@ def feeds(repo):
 
 
 def recipe(repo):
-    paths = [repo / 'configs/mg1300.config', repo / 'configs/release.json', repo / 'feeds.conf']
+    paths = [repo / 'configs/mango2.config', repo / 'configs/release.json', repo / 'feeds.conf']
     paths += sorted((repo / 'patches').glob('*.patch'))
     paths += sorted(p for p in (repo / 'files').rglob('*') if p.is_file())
     return {str(p.relative_to(repo)): sha256(p) for p in paths}
@@ -131,7 +131,7 @@ def verify(repo, config, output):
             raise ValueError(f'Checksum mismatch: {name}')
     if sha256(output / f'{tag}-sysupgrade.bin') != metadata['image_sha256']:
         raise ValueError('Image differs from the audited firmware')
-    repository = os.environ.get('GITHUB_REPOSITORY', 'leiusual/mg1300-openwrt-builder')
+    repository = os.environ.get('GITHUB_REPOSITORY', 'leiusual/mango2-openwrt-builder')
     (output / 'release-notes.md').write_text(f'''GL.iNet **GL-MG1300（Mango 2）** 测试固件，不能用于 MT1300 或 NanoPi Zero2。
 
 - 自有版本：`{tag}`；构建仓库 commit：`{metadata['builder_commit']}`。
