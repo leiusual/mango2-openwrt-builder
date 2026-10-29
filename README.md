@@ -21,13 +21,12 @@ USB 控制器、无线驱动等由 MG1300 profile 选择；USB 网络/串口底�
 
 IPv6、DHCP、DNS和防火墙使用上游默认值。hostname 默认为 `Mango`；双频 Wi-Fi 的 SSID 默认为 `Mango`、国家为 `CN`，默认开启且不设密码（开放网络），信道和带宽沿用上游硬件检测结果。APN、蜂窝接口、WireGuard Peer 和路由在刷机后按实际网络配置。短信只提供 CLI，不安装短信 LuCI 插件或启用后台轮询。
 
-`files/` 作为 OpenWrt 根文件系统 overlay 内置到镜像，并纳入构建输入 SHA256 和 build-info 归档；包含 DJI 模块驱动绑定 hotplug，以及 MG1300 的 hostname / Wi-Fi 默认配置。
+`files/` 作为 OpenWrt 根文件系统 overlay 内置到镜像，并纳入构建输入 SHA256 和 build-info 归档；包含 DJI 模块驱动绑定 hotplug，以及 MG1300 的 LAN IP / hostname / Wi-Fi 默认配置。默认值通过 `board.d` 增量提供给上游配置生成器，不覆盖整份 UCI 配置，也不修改 `config_generate`。
 
-源码只应用两处单行补丁：
+源码只应用一处单行补丁：
 
 | 补丁 | 修改 |
 | --- | --- |
-| `patches/0001-default-lan-ip.patch` | 默认 LAN 地址改为 `192.168.8.1/24` |
 | `patches/0002-qmi-ipv4-gateway-prefix.patch` | 修正原生 QMI 在 `dhcp=0` 分支中的 IPv4 网关主机路由：`/128` → `/32` |
 
 补丁应用前执行 `git apply --check`，应用后检查脚本语法；不适用时停止构建。完整差异随构建信息保存。
@@ -44,7 +43,7 @@ IPv6、DHCP、DNS和防火墙使用上游默认值。hostname 默认为 `Mango`�
 
 当前源码：`e507084c386fd415a31563a09def0dfa85191b2f`。
 
-当前版本：`OpenWrt-PR24886-e507084c-mg1300-r4`。构建不会自动追踪 PR 更新。
+当前版本：`OpenWrt-PR24886-e507084c-mg1300-r5`。构建不会自动追踪 PR 更新。
 
 ## 构建与发布
 
@@ -79,7 +78,7 @@ Release 和 `mg1300-release-*` Artifact 包含：
 
 全新安装或恢复出厂设置后，通过 LAN 访问 `https://192.168.8.1`。保留配置升级时，已有 LAN 地址仍然优先。
 
-全新配置会生成 hostname `Mango` 和双频无密码 Wi-Fi `Mango`（国家 `CN`）。这是用户选择的开放网络默认值，可在 LuCI 中设置 Wi-Fi 密码。`files/etc/board.d/99-mango-defaults` 只提供首次生成配置的默认值；保留配置升级时不会清除已有 Wi-Fi 密码，也不会覆盖已有 SSID、国家或 hostname。
+全新配置会生成 hostname `Mango` 和双频无密码 Wi-Fi `Mango`（国家 `CN`）；root 沿用上游默认无密码，不通过 workflow 注入密码。两个频段均不显式设置信道，信道和带宽由上游硬件检测生成。可在 LuCI 中设置密码。`files/etc/board.d/99-mango-defaults` 只提供首次生成配置的默认值；保留配置升级时不会清除已有 Wi-Fi 密码，也不会覆盖已有 LAN 地址、SSID、国家或 hostname。
 
 在 LuCI 中添加 QMI 接口、填写实际控制设备 `/dev/cdc-wdmX` 和 APN，并加入 `wan` 防火墙区域；WireGuard 的密钥、Peer、路由和防火墙按用途配置。串口设备需核对实际 `/dev/ttyUSBX`，可用 `lsusb`、`lsusb -t` 检查驱动绑定。
 

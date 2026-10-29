@@ -135,7 +135,7 @@ def verify(repo, config, output):
     (output / 'release-notes.md').write_text(f'''GL.iNet **GL-MG1300（Mango 2）** 测试固件，不能用于 MT1300 或 NanoPi Zero2。
 
 - 自有版本：`{tag}`；构建仓库 commit：`{metadata['builder_commit']}`。
-- 源码：OpenWrt PR #{config['source_pr']}，固定 commit `{config['source_commit']}`，加本仓库两处补丁。
+- 源码：OpenWrt PR #{config['source_pr']}，固定 commit `{config['source_commit']}`，加本仓库 QMI 网关路由修正补丁。
 - 这不是 OpenWrt 官方稳定版，也不是 GL.iNet 原厂固件；构建与镜像检查通过，实机功能仍待验收。
 - 默认 LAN：`192.168.8.1/24`；包含 LuCI HTTPS、QMI、Modem 串口、短信 CLI、USB 诊断及 WireGuard，以及 DJI `2ca3:4006` 驱动绑定 hotplug。
 - 全新配置：hostname `Mango`；双频 Wi-Fi `Mango`，国家 `CN`，默认开启且不设密码；保留配置升级时沿用已有设置。
