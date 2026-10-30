@@ -138,7 +138,7 @@ def verify(repo, config, output):
 - 源码：OpenWrt PR #{config['source_pr']}，固定 commit `{config['source_commit']}`，加本仓库 QMI 网关路由修正补丁。
 - 这不是 OpenWrt 官方稳定版，也不是 GL.iNet 原厂固件；构建与镜像检查通过，实机功能仍待验收。
 - 默认 LAN：`192.168.8.1/24`；包含 LuCI HTTPS、QMI、Modem 串口、短信 CLI、USB 诊断及 WireGuard，以及 DJI `2ca3:4006` 驱动绑定 hotplug。
-- 全新配置：hostname `Mango`；双频 Wi-Fi `Mango`，国家 `CN`，默认开启且不设密码；保留配置升级时沿用已有设置。
+- 全新配置：hostname `Mango`；双频 Wi-Fi `Mango`，国家 `CN`，默认开启且不设密码；安装和升级均不保留配置，首次启动后按需设置。
 - `*-sysupgrade.bin` 是 MG1300 镜像；`*-build-output.tar.gz` 保存完整输出及匹配的软件包；`*-build-info.tar.gz` 保存配置、源码差异及构建日志。
 - `SHA256SUMS` 校验上述文件与 `build-metadata.json`。安装和验收请阅读[该版本 README](https://github.com/{repository}/blob/{tag}/README.md)。
 

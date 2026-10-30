@@ -21,7 +21,20 @@ USB 控制器、无线驱动等由 MG1300 profile 选择；USB 网络/串口底�
 
 IPv6、DHCP、DNS和防火墙使用上游默认值。hostname 默认为 `Mango`；双频 Wi-Fi 的 SSID 默认为 `Mango`、国家为 `CN`，默认开启且不设密码（开放网络），信道和带宽沿用上游硬件检测结果。APN、蜂窝接口、WireGuard Peer 和路由在刷机后按实际网络配置。短信只提供 CLI，不安装短信 LuCI 插件或启用后台轮询。
 
-`files/` 作为 OpenWrt 根文件系统 overlay 内置到镜像，并纳入构建输入 SHA256 和 build-info 归档；包含 DJI 模块驱动绑定 hotplug，以及 MG1300 的 LAN IP / hostname / Wi-Fi 默认配置。默认值通过 `board.d` 增量提供给上游配置生成器，不覆盖整份 UCI 配置，也不修改 `config_generate`。
+`files/` 作为 OpenWrt 根文件系统 overlay 内置到镜像，并纳入构建输入 SHA256 和 build-info 归档；包含 DJI 模块驱动绑定 hotplug，以及 MG1300 的 LAN IP / hostname / Wi-Fi 默认配置。采用官方 [Firmware Selector](https://firmware-selector.openwrt.org/?version=25.12.6) 的 `uci-defaults` 首次启动脚本方式，在上游生成配置后通过 `uci set` / `uci commit` 应用定制值，不覆盖整份 UCI 配置，也不修改 `config_generate`。参考该方式不改变本项目固定的 PR 源码版本。
+
+`files/etc/uci-defaults/99-mango-defaults` 仅保留相对固定源码 `e507084c` 的定制值：
+
+| 项目 | 上游默认 | 本项目 |
+| --- | --- | --- |
+| LAN IPv4 | `192.168.1.1/24` | `192.168.8.1/24`，使用 CIDR 格式，不另设 `netmask` |
+| hostname | `OpenWrt` | `Mango` |
+| Wi-Fi 国家 | 2.4/5 GHz 不指定国家 | `CN` |
+| Wi-Fi SSID / 启用状态 | `OpenWrt`，默认禁用 | 两个无线接口均设为 `Mango`、`disabled=0` |
+
+核对依据为固定版本的 [config_generate](https://github.com/openwrt/openwrt/blob/e507084c386fd415a31563a09def0dfa85191b2f/package/base-files/files/bin/config_generate) 和 [mac80211.uc](https://github.com/openwrt/openwrt/blob/e507084c386fd415a31563a09def0dfa85191b2f/package/network/config/wifi-scripts/files/lib/wifi/mac80211.uc)。2.4/5 GHz 加密默认即为 `none`，因此不重复设置。该版本在 `wifi-iface` 上设置 `disabled=1`，脚本只需将其改为 `0`，无需额外设置 `wifi-device.disabled`。LAN/WAN 端口由 MG1300 上游板级配置提供，LAN 静态协议、Wi-Fi 的 LAN 归属、AP 模式、信道和带宽等均沿用上游。
+
+脚本先运行 `wifi config`，确保驱动加载后已生成两个无线接口，再应用设置。按上游 [boot](https://github.com/openwrt/openwrt/blob/e507084c386fd415a31563a09def0dfa85191b2f/package/base-files/files/etc/init.d/boot) 的处理方式，脚本成功退出后会从 `/etc/uci-defaults/` 删除，后续启动不再执行；只读原件仍保留在 `/rom/etc/uci-defaults/`。命令失败时返回非零，下次启动重试，日志位于 `/tmp/mango-defaults.log`。
 
 源码只应用一处单行补丁：
 
@@ -43,7 +56,7 @@ IPv6、DHCP、DNS和防火墙使用上游默认值。hostname 默认为 `Mango`�
 
 当前源码：`e507084c386fd415a31563a09def0dfa85191b2f`。
 
-当前版本：`OpenWrt-PR24886-e507084c-mango2-r6`。构建不会自动追踪 PR 更新。
+当前版本：`OpenWrt-PR24886-e507084c-mango2-r7`。构建不会自动追踪 PR 更新。
 
 ## 构建与发布
 
@@ -76,9 +89,9 @@ Release 和 `mango2-release-*` Artifact 包含：
 
 ## 使用
 
-全新安装或恢复出厂设置后，通过 LAN 访问 `https://192.168.8.1`。保留配置升级时，已有 LAN 地址仍然优先。
+安装和升级均不保留配置，使用固件默认值重新生成配置，再按需设置。启动后通过 LAN 访问 `https://192.168.8.1`。
 
-全新配置会生成 hostname `Mango` 和双频无密码 Wi-Fi `Mango`（国家 `CN`）；root 沿用上游默认无密码，不通过 workflow 注入密码。两个频段均不显式设置信道，信道和带宽由上游硬件检测生成。可在 LuCI 中设置密码。`files/etc/board.d/99-mango-defaults` 只提供首次生成配置的默认值；保留配置升级时不会清除已有 Wi-Fi 密码，也不会覆盖已有 LAN 地址、SSID、国家或 hostname。
+全新配置会生成 hostname `Mango` 和双频无密码 Wi-Fi `Mango`（国家 `CN`）；root 沿用上游默认无密码，不通过 workflow 注入密码。两个频段均不显式设置信道，信道和带宽由上游硬件检测生成。可在 LuCI 中设置密码。`files/etc/uci-defaults/99-mango-defaults` 只在首次启动时应用定制值，不包含旧配置迁移逻辑。
 
 在 LuCI 中添加 QMI 接口、填写实际控制设备 `/dev/cdc-wdmX` 和 APN，并加入 `wan` 防火墙区域；WireGuard 的密钥、Peer、路由和防火墙按用途配置。串口设备需核对实际 `/dev/ttyUSBX`，可用 `lsusb`、`lsusb -t` 检查驱动绑定。
 
@@ -88,7 +101,7 @@ Release 和 `mango2-release-*` Artifact 包含：
 
 串口动态 ID 引用 `05c6:908b` 的 `RSVD(4)`，避免串口驱动占用接口 4；确认四个串口已绑定后，临时引用 `2c7c:0125` 的 QMI 驱动信息完成绑定，并移除临时 QMI ID。检测到异常接口布局、已有其他驱动或持久的同 ID QMI 规则时停止并记录 `dji-qmi` 日志，不主动解绑设备。
 
-这两个参考条目已核对 [Linux 6.18 option 驱动](https://github.com/torvalds/linux/blob/v6.18/drivers/usb/serial/option.c)和 [QMI 驱动](https://github.com/torvalds/linux/blob/v6.18/drivers/net/usb/qmi_wwan.c)，当前运行内核为 6.18.44。更换源码/内核或模块 USB 模式后需重新核对；不能视为所有 DJI 模块通用支持。内置后的新固件仍需验收冷启动和热插拔。保留配置升级时，应检查旧 overlay 中同路径脚本是否覆盖新版。
+这两个参考条目已核对 [Linux 6.18 option 驱动](https://github.com/torvalds/linux/blob/v6.18/drivers/usb/serial/option.c)和 [QMI 驱动](https://github.com/torvalds/linux/blob/v6.18/drivers/net/usb/qmi_wwan.c)，当前运行内核为 6.18.44。更换源码/内核或模块 USB 模式后需重新核对；不能视为所有 DJI 模块通用支持。内置后的新固件仍需验收冷启动和热插拔。
 
 ### 按需读取短信
 
@@ -110,6 +123,6 @@ sms_tool -d /dev/ttyUSB2 -s ME -j recv
 python3 -m unittest discover -s tests -v
 python3 scripts/release.py version
 sh -n files/etc/hotplug.d/usb/99-dji-qmi
-sh -n files/etc/board.d/99-mango-defaults
+sh -n files/etc/uci-defaults/99-mango-defaults
 git diff --check
 ```

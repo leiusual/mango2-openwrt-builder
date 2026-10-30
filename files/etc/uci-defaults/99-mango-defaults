@@ -1,0 +1,24 @@
+#!/bin/sh
+# First-boot settings for a fresh MG1300 installation.
+# This script remains in /rom/etc/uci-defaults/ as part of the image.
+
+exec >/tmp/mango-defaults.log 2>&1
+
+# Generate wireless sections after boot has loaded the drivers.
+wifi config || exit 1
+
+uci set network.lan.ipaddr='192.168.8.1/24' || exit 1
+uci set 'system.@system[0].hostname=Mango' || exit 1
+
+# MG1300 has two radios. Encryption, AP mode and LAN membership use defaults.
+for index in 0 1; do
+	uci set "wireless.@wifi-device[$index].country=CN" || exit 1
+	uci set "wireless.@wifi-iface[$index].ssid=Mango" || exit 1
+	uci set "wireless.@wifi-iface[$index].disabled=0" || exit 1
+done
+
+uci commit network || exit 1
+uci commit system || exit 1
+uci commit wireless || exit 1
+
+exit 0
