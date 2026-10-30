@@ -34,7 +34,7 @@ IPv6、DHCP、DNS和防火墙使用上游默认值。hostname 默认为 `Mango`�
 
 核对依据为固定版本的 [config_generate](https://github.com/openwrt/openwrt/blob/e507084c386fd415a31563a09def0dfa85191b2f/package/base-files/files/bin/config_generate) 和 [mac80211.uc](https://github.com/openwrt/openwrt/blob/e507084c386fd415a31563a09def0dfa85191b2f/package/network/config/wifi-scripts/files/lib/wifi/mac80211.uc)。2.4/5 GHz 加密默认即为 `none`，因此不重复设置。该版本在 `wifi-iface` 上设置 `disabled=1`，脚本只需将其改为 `0`，无需额外设置 `wifi-device.disabled`。LAN/WAN 端口由 MG1300 上游板级配置提供，LAN 静态协议、Wi-Fi 的 LAN 归属、AP 模式、信道和带宽等均沿用上游。
 
-脚本先运行 `wifi config`，确保驱动加载后已生成两个无线接口，再应用设置。按上游 [boot](https://github.com/openwrt/openwrt/blob/e507084c386fd415a31563a09def0dfa85191b2f/package/base-files/files/etc/init.d/boot) 的处理方式，脚本成功退出后会从 `/etc/uci-defaults/` 删除，后续启动不再执行；只读原件仍保留在 `/rom/etc/uci-defaults/`。命令失败时返回非零，下次启动重试，日志位于 `/tmp/mango-defaults.log`。
+脚本仅通过 UCI 设置和提交上述定制值。无线检测与配置生成由上游 [boot](https://github.com/openwrt/openwrt/blob/e507084c386fd415a31563a09def0dfa85191b2f/package/base-files/files/etc/init.d/boot) 和 [无线 hotplug](https://github.com/openwrt/openwrt/blob/e507084c386fd415a31563a09def0dfa85191b2f/package/network/config/wifi-scripts/files/etc/hotplug.d/ieee80211/10-wifi-detect) 负责，默认设置脚本不再调用 `wifi config` 或维护独立日志。脚本成功退出后由系统从 `/etc/uci-defaults/` 删除，后续启动不再执行；只读原件仍保留在 `/rom/etc/uci-defaults/`。UCI 命令失败时返回非零，由系统保留脚本供下次启动执行。
 
 源码只应用一处单行补丁：
 
@@ -56,7 +56,7 @@ IPv6、DHCP、DNS和防火墙使用上游默认值。hostname 默认为 `Mango`�
 
 当前源码：`e507084c386fd415a31563a09def0dfa85191b2f`。
 
-当前版本：`OpenWrt-PR24886-e507084c-mango2-r7`。构建不会自动追踪 PR 更新。
+当前版本：`OpenWrt-PR24886-e507084c-mango2-r8`。构建不会自动追踪 PR 更新。
 
 ## 构建与发布
 

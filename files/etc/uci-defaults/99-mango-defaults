@@ -2,11 +2,6 @@
 # First-boot settings for a fresh MG1300 installation.
 # This script remains in /rom/etc/uci-defaults/ as part of the image.
 
-exec >/tmp/mango-defaults.log 2>&1
-
-# Generate wireless sections after boot has loaded the drivers.
-wifi config || exit 1
-
 uci set network.lan.ipaddr='192.168.8.1/24' || exit 1
 uci set 'system.@system[0].hostname=Mango' || exit 1
 
